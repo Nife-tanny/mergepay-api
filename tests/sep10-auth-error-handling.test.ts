@@ -305,6 +305,22 @@ describe("POST /auth/verify — time bounds", () => {
     await expectChallengeRejected(signed, "CHALLENGE_EXPIRED");
   });
 
+  it("reports a closed window as CHALLENGE_EXPIRED even when its bounds are inverted", async () => {
+    // A negative timeout builds minTime = now, maxTime = now - 60. The window
+    // has closed, so expiry (not a structural code) is the useful answer —
+    // the precedence verification had before #925.
+    const client = Keypair.random();
+    const transaction = WebAuth.buildChallengeTx(
+      serverKeypair(),
+      client.publicKey(),
+      config.SEP10_HOME_DOMAIN,
+      -60,
+      config.networkPassphrase,
+      config.WEB_AUTH_DOMAIN
+    );
+    await expectChallengeRejected(sign(transaction, [client]), "CHALLENGE_EXPIRED");
+  });
+
   it("does not grant CHALLENGE_EXPIRED to an expired envelope this server did not sign", async () => {
     // Regression: the old fallback path reported any expired envelope the SDK
     // refused as CHALLENGE_EXPIRED, server signature or not.

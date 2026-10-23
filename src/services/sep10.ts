@@ -508,7 +508,20 @@ function readChallenge(
   const homeDomain = extractHomeDomain(tx);
   if (homeDomain === null) invalidChallenge();
 
-  validateChallengeTimeBounds(readTimeBounds(tx), undefined, firstOperationAccount(tx));
+  // A window that has closed is reported as expiry even when it is otherwise
+  // malformed (e.g. inverted bounds): the remedy is the same fresh challenge,
+  // and this precedence is what verification has always given a server-signed
+  // envelope.
+  const bounds = readTimeBounds(tx);
+  const account = firstOperationAccount(tx);
+  if (
+    bounds &&
+    bounds.maxTime > 0 &&
+    bounds.maxTime + CLOCK_SKEW_TOLERANCE_SECONDS <= nowSeconds()
+  ) {
+    expiredChallenge(account);
+  }
+  validateChallengeTimeBounds(bounds, undefined, account);
 
   if (homeDomain.toLowerCase() !== config.SEP10_HOME_DOMAIN.toLowerCase()) {
     homeDomainMismatch();
